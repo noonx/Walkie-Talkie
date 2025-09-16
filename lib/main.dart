@@ -24,13 +24,14 @@ class _WalkieTalkieState extends State<WalkieTalkie> {
     super.initState();
     _initHealthSteps();
     _refreshTimer = Timer.periodic(Duration(seconds: 5), (timer) {
-      _initHealthSteps();
+      _initHealthSteps(); //Calls for step count from Health API every 5 seconds
     });
   }
 
   /// Initializes step count by requesting today's total steps from the Health API.
   Future<void> _initHealthSteps() async {
     Health health = Health();
+    health.configure();
     final types = [HealthDataType.STEPS];
     final now = DateTime.now();
     final midnight = DateTime(now.year, now.month, now.day);
@@ -44,11 +45,21 @@ class _WalkieTalkieState extends State<WalkieTalkie> {
           endTime: now,
           types: types,
         );
+        data = health.removeDuplicates(data);
+        if (data.isEmpty) {
+          print("No health data returned");
+        }
         // Sum all step counts retrieved
-        int total = data.fold(0, (sum, d) => sum + (d.value as int));
+        int total = data.fold(0, (sum, d) {
+          final value = d.value;
+          if (value is NumericHealthValue) {
+            return sum + value.numericValue.round();
+          }
+          return sum;
+        });
         setState(() {
           baseSteps = total;
-          steps = baseSteps; // initialize steps with today’s total
+          steps = baseSteps; // initialize steps with today's total
         });
       } catch (e) {
         print("Health fetch error: $e");
@@ -76,9 +87,7 @@ class _WalkieTalkieState extends State<WalkieTalkie> {
     return MaterialApp(
       theme: ThemeData.light().copyWith(primaryColor: Colors.green),
       darkTheme: ThemeData.dark().copyWith(
-        textTheme: ThemeData
-            .dark()
-            .textTheme, // don’t override globally
+        textTheme: ThemeData.dark().textTheme, // don't override globally
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.green,
           titleTextStyle: TextStyle(
@@ -105,10 +114,7 @@ class _WalkieTalkieState extends State<WalkieTalkie> {
               // Container for background image with blur effect and step count text overlay
               Container(
                 width: double.infinity,
-                height: MediaQuery
-                    .of(context)
-                    .size
-                    .height * 0.3,
+                height: MediaQuery.of(context).size.height * 0.3,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -127,10 +133,7 @@ class _WalkieTalkieState extends State<WalkieTalkie> {
                     // Step count
                     Padding(
                       padding: EdgeInsets.all(
-                        MediaQuery
-                            .of(context)
-                            .size
-                            .height * 0.3 / 4,
+                        MediaQuery.of(context).size.height * 0.3 / 4,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
